@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Scan</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background-color: #000; color: #0f0;
+            font-family: 'Courier New', Courier, monospace; overflow: hidden;
+            height: 100vh; width: 100vw; display: flex; justify-content: center;
+            align-items: center; user-select: none;
+        }
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; opacity: 0; transition: opacity 0.3s ease;
+            pointer-events: none; z-index: 1;
+        }
+        .screen.active { opacity: 1; pointer-events: auto; z-index: 10; }
+
+        /* МЕНЮ */
+        #screen-menu { background: #000; z-index: 2; }
+        .menu-title { font-size: 2rem; color: #fff; margin-bottom: 30px; text-shadow: 0 0 10px rgba(255,255,255,0.5); text-align: center; padding: 0 20px; }
+        .btn-start { background: #fff; color: #000; border: none; padding: 15px 40px; font-size: 1.5rem; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px #fff; }
+
+        /* СКАНИРОВАНИЕ */
+        #screen-scan { background: #000; z-index: 3; }
+        .scan-text { font-size: 1.5rem; color: #0f0; margin-bottom: 20px; }
+        .progress-bar { width: 80%; max-width: 400px; height: 20px; border: 2px solid #0f0; padding: 2px; }
+        .progress-fill { height: 100%; background: #0f0; width: 0%; transition: width 0.1s linear; }
+
+        /* ВИРУС */
+        #screen-virus-found { background: #000; z-index: 4; }
+        .virus-alert { font-size: 2rem; color: #f00; font-weight: bold; text-transform: uppercase; animation: flash 0.5s infinite; text-shadow: 0 0 10px #f00; text-align: center; padding: 0 20px; }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ГЛАЗ */
+        #screen-eye-text { background: #000; z-index: 5; justify-content: flex-start; padding-top: 15vh; }
+        .eye-container { position: absolute; top: 15%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
+        .eye-svg { width: 150px; height: 75px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+        .terminal-box { width: 90%; max-width: 500px; text-align: left; font-size: 1rem; text-shadow: 0 0 5px #0f0; margin-top: 60px; }
+        .line { margin-bottom: 8px; white-space: pre-wrap; min-height: 1.2rem; }
+        .cursor { display: inline-block; width: 9px; height: 1.1rem; background-color: #0f0; animation: blink 1s step-end infinite; vertical-align: bottom; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ПУШ */
+        .push-notification {
+            position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; background: rgba(40, 40, 40, 0.95);
+            border: 1px solid #555; border-radius: 15px; padding: 15px; color: #fff;
+            z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            transition: top 0.5s ease-in-out; font-family: sans-serif; box-sizing: border-box;
+        }
+        .push-notification.show { top: 20px; }
+        .push-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
+        .push-title { font-weight: bold; font-size: 1rem; color: #fff; margin-bottom: 3px; }
+        .push-text { font-size: 0.95rem; color: #ddd; }
+
+        /* КРАСНЫЙ ЖНЕЦ */
+        #screen-red { background-color: #3a0000; z-index: 6; }
+        .reaper-svg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 380px; z-index: 7; opacity: 0.9; }
+        .camera-alert { position: absolute; top: 10%; background: rgba(0,0,0,0.8); border: 1px solid #fff; color: #fff; padding: 10px 20px; font-size: 1rem; z-index: 10; display: none; }
+        .input-container { position: absolute; bottom: 15%; display: flex; flex-direction: column; align-items: center; z-index: 10; width: 100%; }
+        .prompt-text { font-size: 1.1rem; color: #fff; margin-bottom: 10px; font-weight: bold; text-align: center; padding: 0 10px; }
+        .input-row { display: flex; gap: 10px; justify-content: center; }
+        input[type="text"] { background: rgba(0, 0, 0, 0.8); border: 2px solid #fff; color: #fff; padding: 10px; font-size: 1.2rem; font-family: 'Courier New', Courier, monospace; width: 120px; text-align: center; outline: none; transition: border-color 0.2s; }
+        button { background: #fff; border: none; color: #000; padding: 10px 20px; font-size: 1.2rem; font-family: 'Courier New', Courier, monospace; cursor: pointer; font-weight: bold; }
+
+        /* ЗЕЛЕНЫЙ ЖНЕЦ */
+        #screen-green-reaper { background-color: #000; z-index: 8; }
+        .matrix-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.3; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .reaper-green { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 380px; z-index: 5; opacity: 1; }
+
+        /* ФИНАЛ */
+        #screen-final { background-color: #000; z-index: 9; align-items: flex-start; padding-left: 20px; box-sizing: border-box; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <!-- Пуш -->
+    <div class="push-notification" id="pushNotif">
+        <div class="push-header"><span>СИСТЕМА</span><span>сейчас</span></div>
+        <div class="push-title">Обнаружено устройство</div>
+        <div class="push-text" id="pushText">Определение локации...</div>
+    </div>
+
+    <!-- 0. МЕНЮ -->
+    <div id="screen-menu" class="screen active">
+        <div class="menu-title">СИСТЕМА ЗАЩИТЫ</div>
+        <button class="btn-start" onclick="startScan()">ЗАПУСТИТЬ</button>
+    </div>
+
+    <!-- 1. СКАН -->
+    <div id="screen-scan" class="screen">
+        <div class="scan-text">Сканирование: <span id="percentText">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- 2. ВИРУС -->
+    <div id="screen-virus-found" class="screen">
+        <div class="virus-alert">⚠️ ОБНАРУЖЕН ВИРУС ⚠️</div>
+    </div>
+
+    <!-- 3. ГЛАЗ -->
+    <div id="screen-eye-text" class="screen">
+        <div class="eye-container">
+            <svg class="eye-svg" viewBox="0 0 100 50">
+                <path d="M 5 25 Q 50 -5 95 25 Q 50 55 5 25 Z" fill="none" stroke="#fff" stroke-width="3"/>
+                <circle cx="50" cy="25" r="12" fill="none" stroke="#fff" stroke-width="3"/>
+                <circle cx="50" cy="25" r="5" fill="#fff"/>
+            </svg>
+        </div>
+        <div class="terminal-box" id="terminalBox"></div>
+    </div>
+
+    <!-- 4. КРАСНЫЙ ЖНЕЦ -->
+    <div id="screen-red" class="screen">
+        <div class="matrix-bg"><canvas id="matrixRed"></canvas></div>
+        <svg class="reaper-svg" viewBox="0 0 100 100">
+            <path d="M 50 20 C 30 20 20 40 20 60 L 15 95 L 85 95 L 80 60 C 80 40 70 20 50 20 Z" fill="#000" stroke="#fff" stroke-width="1.5"/>
+            <path d="M 25 45 Q 15 50 20 70 Q 30 65 35 55 Z" fill="#000" stroke="#fff" stroke-width="1"/>
+            <line x1="25" y1="10" x2="35" y2="85" stroke="#fff" stroke-width="2.5"/>
+            <path d="M 25 10 Q 5 5 0 25 Q 10 20 25 15 Z" fill="#fff"/>
+            <path d="M 50 20 Q 40 20 35 35 Q 45 28 50 28 Q 55 28 65 35 Q 60 20 50 20 Z" fill="#fff"/>
+        </svg>
+        <div class="camera-alert" id="cameraAlert">⚠️ камера 02: нет сигнала</div>
+        <div class="input-container">
+            <div class="prompt-text" id="promptText">ВВЕДИ КОД ОТКРЫТИЕ</div>
+            <div class="input-row">
+                <input type="text" id="codeInput" placeholder="***" maxlength="3" autocomplete="off">
+                <button onclick="checkCode()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. ЗЕЛЕНЫЙ ЖНЕЦ -->
+    <div id="screen-green-reaper" class="screen">
+        <div class="matrix-bg"><canvas id="matrixGreen"></canvas></div>
+        <svg class="reaper-green" viewBox="0 0 100 100">
+            <path d="M 50 20 C 30 20 20 40 20 60 L 15 95 L 85 95 L 80 60 C 80 40 70 20 50 20 Z" fill="#000" stroke="#0f0" stroke-width="1.5"/>
+            <path d="M 25 45 Q 15 50 20 70 Q 30 65 35 55 Z" fill="#000" stroke="#0f0" stroke-width="1"/>
+            <line x1="25" y1="10" x2="35" y2="85" stroke="#0f0" stroke-width="2.5"/>
+            <path d="M 25 10 Q 5 5 0 25 Q 10 20 25 15 Z" fill="#0f0"/>
+            <path d="M 50 20 Q 40 20 35 35 Q 45 28 50 28 Q 55 28 65 35 Q 60 20 50 20 Z" fill="#0f0"/>
+        </svg>
+    </div>
+
+    <!-- 6. ФИНАЛ -->
+    <div id="screen-final" class="screen">
+        <div class="terminal-box" id="finalTerminalBox"></div>
+    </div>
+
+    <script>
+        const state = {
+            scanStarted: false, virusShown: false, codeChecked: false,
+            matrixTimers: {}, location: null, locationPromise: null
+        };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const el = document.getElementById(id);
+            if (el) el.classList.add('active');
+        }
+
+        function initMatrix(canvasId, colorStr) {
+            if (state.matrixTimers[canvasId]) {
+                clearInterval(state.matrixTimers[canvasId]);
+                state.matrixTimers[canvasId] = null;
+            }
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width = canvas.width = window.innerWidth;
+            let height = canvas.height = window.innerHeight;
+            const codeSnippets = ["if (you.see(death)) {", "run();", "} else {", "throw GAME_OVER;", "while(1) { fear++; }", "0xDEAD: 1011001;"];
+            const fontSize = 12;
+            let columns = Math.ceil(width / fontSize);
+            let drops = [];
+            for (let x = 0; x < columns; x++) drops[x] = 1;
+            
+            const onResize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                columns = Math.ceil(width / fontSize);
+                const newDrops = [];
+                for (let x = 0; x < columns; x++) newDrops[x] = drops[x] || 1;
+                drops = newDrops;
+            };
+            window.addEventListener('resize', onResize);
+
+            const timer = setInterval(() => {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = colorStr;
+                ctx.font = fontSize + 'px monospace';
+                for (let i = 0; i < drops.length; i++) {
+                    const text = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+                    ctx.fillText(text, i * (fontSize * 5.5), drops[i] * fontSize);
+                    if (drops[i] * fontSize > height && Math.random() > 0.975) drops[i] = 0;
+                    drops[i]++;
+                }
+            }, 50);
+            state.matrixTimers[canvasId] = timer;
+            return timer;
+        }
+
+        // ============================================================
+        //  ГЕОЛОКАЦИЯ (Универсальная для Браузера и APK)
+        // ============================================================
+        function getLocation() {
+            if (state.locationPromise) return state.locationPromise;
+
+            state.locationPromise = (async () => {
+                let lat = null, lon = null;
+
+                // 1. Пробуем получить координаты через БРАУЗЕР (отлично работает на GitHub)
+                const browserCoords = await new Promise((resolve) => {
+                    if (!navigator.geolocation) return resolve(null);
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+                        (err) => { console.warn("GPS error:", err); resolve(null); },
+                        { timeout: 8000, enableHighAccuracy: true, maximumAge: 0 }
+                    );
+                });
+
+                if (browserCoords) {
+                    lat = browserCoords.lat;
+                    lon = browserCoords.lon;
+                }
+
+                // 2. Если браузер не дал (например, в APK нет прав), пробуем AndroidAPI
+                if ((lat === null || lon === null) && typeof AndroidAPI !== 'undefined') {
+                    try {
+                        // Проверяем разрешение и просим, если надо
+                        if (AndroidAPI.hasPermission && !AndroidAPI.hasPermission('android.permission.ACCESS_FINE_LOCATION')) {
+                            await new Promise(r => {
+                                window.onAndroidEvent = e => { if(e === 'permissionResult') r(); };
+                                AndroidAPI.requestPermission('android.permission.ACCESS_FINE_LOCATION', 'p1');
+                                setTimeout(r, 5000);
+                            });
+                        }
+                        
+                        // Берем координаты
+                        const androidCoords = await new Promise((resolve) => {
+                            window.onAndroidEvent = function(e, d) {
+                                if (e === 'locationResult') {
+                                    try {
+                                        const data = typeof d === 'string' ? JSON.parse(d) : d;
+                                        if (data && data.latitude && data.longitude) resolve({ lat: data.latitude, lon: data.longitude });
+                                        else resolve(null);
+                                    } catch (err) { resolve(null); }
+                                }
+                            };
+                            AndroidAPI.getLocation('loc1');
+                            setTimeout(() => resolve(null), 10000);
+                        });
+
+                        if (androidCoords) {
+                            lat = androidCoords.lat;
+                            lon = androidCoords.lon;
+                        }
+                    } catch(e) {}
+                }
+
+                // 3. Переводим координаты в адрес через Nominatim (OpenStreetMap)
+                if (lat !== null && lon !== null) {
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ru&zoom=14`);
+                        const data = await res.json();
+                        if (data && data.address) {
+                            const a = data.address;
+                            const country = a.country || 'Россия';
+                            const region = a.state || a.region || a.province || '';
+                            const city = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || '';
+                            const parts = [country, region, city].filter(Boolean);
+                            if (parts.length >= 2) {
+                                state.location = parts.join(', ');
+                                return state.location;
+                            }
+                        }
+                    } catch (e) { console.warn('Nominatim failed', e); }
+                }
+
+                // 4. Если GPS сдох, берем по IP (Нидерланды/Краснодар)
+                try {
+                    const response = await fetch('https://ipwho.is/?lang=ru', { cache: 'no-store' });
+                    const data = await response.json();
+                    if (data && data.success) {
+                        const parts = [];
+                        if (data.country) parts.push(data.country);
+                        if (data.region) parts.push(data.region);
+                        const city = data.city || data.district || '';
+                        if (city) parts.push(city);
+                        if (parts.length) {
+                            state.location = parts.join(', ') + ' (приблизительно)';
+                            return state.location;
+                        }
+                    }
+                } catch (e) { }
+
+                state.location = 'Россия, Неизвестно';
+                return state.location;
+            })();
+
+            return state.locationPromise;
+        }
+
+        // --- 0. СКАНИРОВАНИЕ ---
+        function startScan() {
+            if (state.scanStarted) return;
+            state.scanStarted = true;
+            showScreen('screen-scan');
+            let percent = 0;
+            const percentText = document.getElementById('percentText');
+            const progressFill = document.getElementById('progressFill');
+            const interval = setInterval(() => {
+                percent++;
+                percentText.innerText = percent + '%';
+                progressFill.style.width = percent + '%';
+                if (percent >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        if (state.virusShown) return;
+                        state.virusShown = true;
+                        showScreen('screen-virus-found');
+                        setTimeout(startVirus, 1000);
+                    }, 500);
+                }
+            }, 70);
+        }
+
+        // --- 3. ГЛАЗ ---
+        async function startVirus() {
+            showScreen('screen-eye-text');
+            const location = await getLocation();
+            
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ru-RU');
+            const timeStr = now.toLocaleTimeString('ru-RU');
+            const textLines = ['расшифровка сигнала...', '> BEHIND YOU', 'код принят.', `замечен: ${dateStr}, ${timeStr}`, `локация: ${location}`, 'оглянись_'];
+
+            typeText('terminalBox', textLines, () => {
+                setTimeout(() => {
+                    showScreen('screen-red');
+                    initMatrix('matrixRed', '#ff3333');
+                    setTimeout(() => {
+                        const alert = document.getElementById('cameraAlert');
+                        if (alert) alert.style.display = 'block';
+                    }, 1000);
+                }, 1500);
+            });
+
+            setTimeout(() => {
+                const notif = document.getElementById('pushNotif');
+                const notifText = document.getElementById('pushText');
+                if (!notif || !notifText) return;
+                notifText.innerHTML = `Вы сейчас находитесь: <b>${location}</b>. Мы видим вас.`;
+                notif.classList.add('show');
+                setTimeout(() => notif.classList.remove('show'), 5000);
+            }, 2000);
+        }
+
+        // --- ПЕЧАТЬ ---
+        function typeText(boxId, lines, onDone) {
+            const box = document.getElementById(boxId);
+            if (!box) return;
+            box.innerHTML = '';
+            let li = 0, ci = 0;
+            function step() {
+                if (li >= lines.length) {
+                    if (typeof onDone === 'function') onDone();
+                    return;
+                }
+                let lineEl = document.getElementById('line-' + boxId + '-' + li);
+                if (!lineEl) {
+                    lineEl = document.createElement('div');
+                    lineEl.className = 'line';
+                    lineEl.id = 'line-' + boxId + '-' + li;
+                    box.appendChild(lineEl);
+                }
+                const currentLine = lines[li];
+                if (ci < currentLine.length) {
+                    lineEl.textContent += currentLine.charAt(ci);
+                    ci++;
+                    setTimeout(step, 30);
+                } else {
+                    lineEl.innerHTML = lineEl.textContent + '<span class="cursor"></span>';
+                    li++;
+                    ci = 0;
+                    setTimeout(step, 300);
+                }
+            }
+            step();
+        }
+
+        // --- ПРОВЕРКА КОДА ---
+        function checkCode() {
+            if (state.codeChecked) return;
+            const input = document.getElementById('codeInput');
+            if (!input) return;
+            const value = input.value.trim();
+
+            if (value === '337') {
+                state.codeChecked = true;
+                input.disabled = true;
+                showScreen('screen-green-reaper');
+                initMatrix('matrixGreen', '#0f0');
+
+                setTimeout(async () => {
+                    showScreen('screen-final');
+                    const location = await getLocation();
+                    const now = new Date();
+                    const dateStr = now.toLocaleDateString('ru-RU');
+                    const timeStr = now.toLocaleTimeString('ru-RU');
+                    const lines = ['расшифровка сигнала...', '> BEHIND YOU', 'код принят.', `замечен: ${dateStr}, ${timeStr}`, `локация: ${location}`, 'оглянись_'];
+                    typeText('finalTerminalBox', lines);
+                }, 1000);
+            } else {
+                input.style.borderColor = '#f00';
+                input.value = '';
+                input.placeholder = 'НЕВЕРНО';
+                setTimeout(() => {
+                    input.style.borderColor = '#fff';
+                    input.placeholder = '***';
+                }, 800);
+            }
+        }
+
+        document.getElementById('codeInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') checkCode();
+        });
+    </script>
+</body>
+</html>
